@@ -27,7 +27,7 @@ do $$ begin
     create policy "puzzles are publicly readable" on puzzles for select using (true);
   end if;
   if not exists (select 1 from pg_policies where tablename = 'puzzles' and policyname = 'authenticated users can create puzzles') then
-    create policy "authenticated users can create puzzles" on puzzles for insert with check (auth.uid() = created_by);
+    create policy "anyone can create puzzles" on puzzles for insert with check (created_by is null or auth.uid() = created_by);
   end if;
   if not exists (select 1 from pg_policies where tablename = 'user_puzzle_saves' and policyname = 'users own their saves') then
     create policy "users own their saves" on user_puzzle_saves using (auth.uid() = user_id);

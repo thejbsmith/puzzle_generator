@@ -1,36 +1,111 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Puzzle Generator
 
-## Getting Started
+AI-powered word search puzzles. Generate themed puzzles, share them via link, and solve them in the browser.
 
-First, run the development server:
+**Live:** https://puzzle-generator-nine.vercel.app
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+- AI-generated word lists via Groq (`llama-3.3-70b-versatile`)
+- Interactive word search grid — drag to select, color-coded SVG pill highlights
+- Fill/outline toggle for found-word highlights
+- Shareable puzzles via unique link (no account required to play or generate)
+- Personal library — save and manage puzzles with Google sign-in
+- Print-friendly layout (fits on one letter-size page)
+- Progress saved per-browser in localStorage; each player has independent progress
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 16.2.6 (App Router) |
+| Database | Supabase (Postgres + RLS) |
+| Auth | Supabase Auth + Google OAuth |
+| AI | Groq API (`llama-3.3-70b-versatile`) |
+| Deployment | Vercel |
+| UI | Tailwind CSS v4 + shadcn/ui |
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 18+
+- A Supabase project with Google OAuth enabled
+- A Groq API key
+
+### Environment variables
+
+Create `.env.local` in the project root:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_SECRET_KEY=sb_secret_...
+SUPABASE_DB_PASSWORD=...
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GROQ_API_KEY=...
+SUPABASE_ACCESS_TOKEN=...   # Supabase personal access token (for Management API)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Database setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Run `scratchpad/schema.sql` against your Supabase project to create the tables and RLS policies.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Run
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open http://localhost:3000.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+  app/
+    actions/          # Server actions
+      generateWords   # Groq word list generation
+      savePuzzle      # Create puzzle in DB + return share slug
+      saveToLibrary   # Add puzzle to user's saved library
+      removeFromLibrary
+    auth/callback     # OAuth callback route
+    library/          # User's saved puzzles (auth-gated)
+    puzzle/[share_slug]/  # Individual puzzle page
+    page.tsx          # Home: puzzle generator form
+  components/
+    layout/Navbar     # Auth state, sign-in/out, library link
+    puzzle/
+      WordSearchGrid  # Interactive grid + SVG highlights + progress persistence
+      SaveToLibraryButton
+      RemoveFromLibraryButton
+  lib/
+    puzzle/           # Word search engine (pure JS, no deps)
+    supabase/         # client / server / middleware helpers
+```
 
-## Deploy on Vercel
+## Database Schema
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Two tables:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**`puzzles`** — every generated puzzle (anonymous or authenticated)
+- `share_slug` — 8-char UUID prefix, used in URLs
+- `grid` — 2D letter array (jsonb)
+- `words` — word list (jsonb)
+- `theme`, `difficulty`, `size`, `created_by`
+
+**`user_puzzle_saves`** — explicit saves to a user's library
+- `user_id`, `puzzle_id`, `saved_at`
+- `solve_progress jsonb` — reserved for future cross-device progress sync (currently unused; progress is in localStorage)
+
+RLS: puzzles are publicly readable; anyone can create a puzzle (anonymous or authenticated); users can only read/modify their own saves.
+
+## Deployment
+
+```bash
+vercel --prod
+```
+
+Git push does not auto-deploy. Run `vercel --prod` explicitly after pushing.
