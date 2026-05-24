@@ -17,10 +17,12 @@ the project being git-linked to Vercel.
 ## Planned features
 See README.md for the full roadmap. Summary of what's coming and relevant existing hooks:
 
-- **Custom word list** — `WordSource` type and UI placeholder already exist in `src/app/page.tsx`; `wordSource` state is wired but only `'ai'` is active. Note: the state setter is intentionally omitted (`const [wordSource] = useState<WordSource>('ai')`) — add the setter when implementing this. Bypasses `generateWords` action.
-- **Sudoku** — puzzle type card already on home page; needs generator, grid component, and schema addition.
 - **Crossword** — puzzle type card already on home page; most complex, needs its own generation engine.
 - **Cross-device progress sync** — `solve_progress jsonb` column in `user_puzzle_saves` is reserved for this; currently unused.
+
+Already shipped (hooks documented for reference):
+- **Custom word list** — fully live. `WordSource` toggle in `src/app/page.tsx`; custom mode bypasses `generateWords`, passes words directly to `generateWordSearch`.
+- **Sudoku** — fully live. Generator at `src/lib/puzzle/sudoku.ts`; grid component at `src/components/puzzle/SudokuGrid.tsx`; solve route at `/sudoku/[share_slug]`; `sudoku_puzzles` table in Supabase (see `scratchpad/sudoku_schema.sql`).
 
 ## Non-obvious gotchas
 
@@ -29,6 +31,30 @@ See README.md for the full roadmap. Summary of what's coming and relevant existi
 - Client Components → `createClient()` from `@/lib/supabase/client`
 - Direct DB (psql) is IPv6-only. Use Supabase CLI or the Management API for schema work.
   The personal access token lives in `.env.local` as `SUPABASE_ACCESS_TOKEN`.
+
+### Running SQL migrations (schema changes)
+`supabase` is not installed globally — always use `npx supabase`. The project ref is
+`johrmzaetkchoficsqkh`. Do this in order every time:
+
+```bash
+# 1. Link the project (required before --linked works; safe to re-run)
+SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN \
+  npx supabase link --project-ref johrmzaetkchoficsqkh --password $SUPABASE_DB_PASSWORD
+
+# 2. Execute a SQL file
+SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN \
+  npx supabase db query --linked -f scratchpad/your_migration.sql
+
+# 3. Or execute an inline query
+SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN \
+  npx supabase db query --linked "select count(*) from your_table;"
+```
+
+Key pitfalls that cost time:
+- `--project-ref` does NOT exist on `db query` — use `link` first, then `--linked`
+- The env var must be `SUPABASE_ACCESS_TOKEN`, not passed as a flag
+- `supabase db query` is available from CLI v2.79.0+ (`npx supabase --version` to confirm)
+- Save migration SQL to `scratchpad/` and verify with a follow-up SELECT after running
 
 ### Supabase key naming
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` are the correct modern
