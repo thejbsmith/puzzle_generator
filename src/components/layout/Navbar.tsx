@@ -1,12 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 function userAvatarUrl(user: User): string {
   // Google OAuth provides a real profile photo in user_metadata
@@ -51,14 +50,7 @@ export default function Navbar() {
                 My Library
               </Link>
               <Avatar className="h-8 w-8">
-                <Image
-                  src={userAvatarUrl(user)}
-                  alt={user.email ?? 'User avatar'}
-                  width={32}
-                  height={32}
-                  className="rounded-full object-cover"
-                  unoptimized
-                />
+                <AvatarImage src={userAvatarUrl(user)} alt={user.email ?? 'User avatar'} />
                 <AvatarFallback className="bg-zinc-800 text-white text-sm">
                   {initials}
                 </AvatarFallback>
