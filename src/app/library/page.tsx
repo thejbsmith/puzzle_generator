@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { RemoveFromLibraryButton } from '@/components/puzzle/RemoveFromLibraryButton';
 import Link from 'next/link';
 
 export default async function LibraryPage() {
@@ -51,19 +52,21 @@ export default async function LibraryPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {puzzles.map((p) => (
-            <Link key={p.share_slug} href={`/puzzle/${p.share_slug}`}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{p.theme}</CardTitle>
+            <Card key={p.share_slug} className="relative hover:shadow-md transition-shadow cursor-pointer">
+              <Link href={`/puzzle/${p.share_slug}`} className="absolute inset-0 z-0" aria-label={p.theme} />
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{p.theme}</CardTitle>
+                  <div className="flex items-center gap-2">
                     <Badge variant="outline" className="capitalize">{p.difficulty}</Badge>
+                    <RemoveFromLibraryButton shareSlug={p.share_slug} />
                   </div>
-                </CardHeader>
-                <CardContent className="text-sm text-zinc-500">
-                  {p.size} × {p.size} · Saved {new Date(p.saved_at).toLocaleDateString()}
-                </CardContent>
-              </Card>
-            </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="text-sm text-zinc-500">
+                {p.size} × {p.size} · Saved {new Date(p.saved_at).toLocaleDateString()}
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
