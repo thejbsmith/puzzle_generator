@@ -130,6 +130,11 @@
 }
 
 @media print {
+  @page {
+    size: letter portrait;
+    margin: 0.4in;
+  }
+
   body {
     background: white !important;
   }
@@ -145,19 +150,16 @@
     display: block !important;
   }
 
-  /* Grid: keep colors crisp */
-  .print-word-list .line-through {
-    display: none;
-  }
-
-  /* Solution mode: show found-word highlights when .print-solution is on <html> */
-  html:not(.print-solution) .bg-green-200 {
-    background: white !important;
-    color: black !important;
+  /* Grid: constrain to fit on one page alongside the word list */
+  .puzzle-grid {
+    max-width: 5.2in !important;
+    max-height: 5.2in !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
   }
 
   /* Prevent page breaks inside the grid */
-  [style*="aspect-ratio"] {
+  .puzzle-grid {
     break-inside: avoid;
     page-break-inside: avoid;
   }
