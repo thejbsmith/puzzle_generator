@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { WordSearchGrid } from '@/components/puzzle/WordSearchGrid';
 import { Badge } from '@/components/ui/badge';
+import { SaveToLibraryButton } from '@/components/puzzle/SaveToLibraryButton';
 import PrintControls from './PrintControls';
 
 interface PageProps {
@@ -20,11 +21,24 @@ export default async function PuzzlePage({ params }: PageProps) {
 
   if (error || !puzzle) notFound();
 
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let isSaved = false;
+  if (user) {
+    const { data } = await supabase
+      .from('user_puzzle_saves')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('puzzle_id', puzzle.id)
+      .maybeSingle();
+    isSaved = !!data;
+  }
+
   const grid = puzzle.grid as string[][];
   const words = puzzle.words as string[];
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 space-y-6">
+    <div className="mx-auto max-w-2xl px-4 py-8 space-y-6 print:max-w-none print:px-0 print:py-0 print:space-y-3">
       {/* Header */}
       <div className="print:hidden flex items-center justify-between">
         <div>
@@ -34,7 +48,14 @@ export default async function PuzzlePage({ params }: PageProps) {
             <span className="text-sm text-zinc-400">{puzzle.size} × {puzzle.size}</span>
           </div>
         </div>
-        <PrintControls />
+        <div className="flex items-center gap-2">
+          <SaveToLibraryButton
+            shareSlug={share_slug}
+            initialSaved={isSaved}
+            isSignedIn={!!user}
+          />
+          <PrintControls />
+        </div>
       </div>
 
       {/* Print-only header */}
