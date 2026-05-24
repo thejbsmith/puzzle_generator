@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { WordSearchGrid } from '@/components/puzzle/WordSearchGrid';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +9,28 @@ import PrintControls from './PrintControls';
 
 interface PageProps {
   params: Promise<{ share_slug: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { share_slug } = await params;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('puzzles')
+    .select('theme, difficulty, size')
+    .eq('share_slug', share_slug)
+    .single();
+
+  if (!data) return { title: 'Word Search | Puzzle Generator' };
+
+  const title = `${data.theme} Word Search`;
+  const description = `A ${data.difficulty} ${data.size}×${data.size} word search puzzle`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, siteName: 'Puzzle Generator', type: 'website' },
+    twitter: { card: 'summary', title, description },
+  };
 }
 
 export default async function PuzzlePage({ params }: PageProps) {

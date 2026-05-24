@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { SudokuGrid } from '@/components/puzzle/SudokuGrid';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +8,29 @@ import { ShareButton } from '@/components/puzzle/ShareButton';
 
 interface PageProps {
   params: Promise<{ share_slug: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { share_slug } = await params;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('sudoku_puzzles')
+    .select('difficulty')
+    .eq('share_slug', share_slug)
+    .single();
+
+  if (!data) return { title: 'Sudoku | Puzzle Generator' };
+
+  const cap = data.difficulty.charAt(0).toUpperCase() + data.difficulty.slice(1);
+  const title = `${cap} Sudoku`;
+  const description = `A ${data.difficulty} difficulty Sudoku puzzle`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, siteName: 'Puzzle Generator', type: 'website' },
+    twitter: { card: 'summary', title, description },
+  };
 }
 
 export default async function SudokuPage({ params }: PageProps) {

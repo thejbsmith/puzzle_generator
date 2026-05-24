@@ -6,7 +6,7 @@ to split panes and run parallel Claude Code agents rather than working sequentia
 Use the /cmux skill for orchestration patterns.
 
 ## Project
-Word search puzzle generator — live at https://puzzle-generator-nine.vercel.app.
+Puzzle generator (word search + Sudoku) — live at https://puzzle-generator-nine.vercel.app.
 Stack: Next.js 16.2.6 App Router · Supabase · Google OAuth · Groq · Vercel.
 See README.md for full context and project structure.
 
@@ -21,8 +21,12 @@ See README.md for the full roadmap. Summary of what's coming and relevant existi
 - **Cross-device progress sync** — `solve_progress jsonb` column in `user_puzzle_saves` is reserved for this; currently unused.
 
 Already shipped (hooks documented for reference):
-- **Custom word list** — fully live. `WordSource` toggle in `src/app/page.tsx`; custom mode bypasses `generateWords`, passes words directly to `generateWordSearch`.
+- **Custom word list** — fully live. `WordSource` toggle in `src/app/page.tsx`; custom mode bypasses `generateWords`, passes words directly to `generateWordSearch`. `WordChipInput` component; space/comma/Enter all trigger word commit.
 - **Sudoku** — fully live. Generator at `src/lib/puzzle/sudoku.ts`; grid component at `src/components/puzzle/SudokuGrid.tsx`; solve route at `/sudoku/[share_slug]`; `sudoku_puzzles` table in Supabase (see `scratchpad/sudoku_schema.sql`).
+- **Puzzle naming / library rename** — users can name a puzzle at save time (shown to signed-in users only in generator result card). `RenameEntryButton` component provides inline rename on library cards. `nickname` column on `user_puzzle_saves`.
+- **Library grouped by puzzle type** — `user_puzzle_saves` has `puzzle_type TEXT` + nullable FKs (`puzzle_id`, `sudoku_puzzle_id`) with check constraint. Library page uses a `sections` array — add one entry per new puzzle type. See `scratchpad/library_extensibility_schema.sql`.
+- **User avatars** — Google OAuth profile photo via `user_metadata.avatar_url`; DiceBear identicon fallback (`api.dicebear.com/9.x/identicon/svg`). Uses `AvatarImage` (not `next/image`) inside shadcn `Avatar` so `AvatarFallback` is properly suppressed on load.
+- **Share links with Open Graph meta** — `ShareButton` component uses Web Share API with clipboard fallback. Both solve pages export `generateMetadata()` for dynamic `og:title` / `og:description`. Root layout has `metadataBase` set to the Vercel URL.
 
 ## Non-obvious gotchas
 
