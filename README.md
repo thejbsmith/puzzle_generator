@@ -102,6 +102,22 @@ Two tables:
 
 RLS: puzzles are publicly readable; anyone can create a puzzle (anonymous or authenticated); users can only read/modify their own saves.
 
+## Roadmap
+
+Features already advertised in the UI as "Coming Soon":
+
+### Custom word list (word search)
+Let users supply their own word list instead of relying on AI generation. The UI placeholder and `WordSource` type (`'ai' | 'custom'`) are already in `src/app/page.tsx` — wiring up the input and bypassing the Groq call is the main work.
+
+### Sudoku
+Generate and solve Sudoku puzzles in the browser. The puzzle type selector card is already present on the home page. Needs: a Sudoku generator, an interactive solving grid, and a new puzzle type in the DB schema (`type` column or separate table).
+
+### Crossword
+AI-assisted crossword generation — place themed words with intersections, generate clues via Groq. Significantly more complex than word search; likely needs a separate generation engine and a different interactive grid component.
+
+### Cross-device progress sync (word search)
+The `solve_progress jsonb` column in `user_puzzle_saves` is reserved for this. Currently, progress lives only in `localStorage`. For signed-in users, progress could be read from and written to the DB so it follows them across devices.
+
 ## Deployment
 
 ```bash

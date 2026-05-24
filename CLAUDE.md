@@ -14,6 +14,14 @@ See README.md for full context and project structure.
 `vercel --prod` from the project root. Git push does NOT trigger auto-deploy despite
 the project being git-linked to Vercel.
 
+## Planned features
+See README.md for the full roadmap. Summary of what's coming and relevant existing hooks:
+
+- **Custom word list** — `WordSource` type and UI placeholder already exist in `src/app/page.tsx`; `wordSource` state is wired but only `'ai'` is active. Bypasses `generateWords` action.
+- **Sudoku** — puzzle type card already on home page; needs generator, grid component, and schema addition.
+- **Crossword** — puzzle type card already on home page; most complex, needs its own generation engine.
+- **Cross-device progress sync** — `solve_progress jsonb` column in `user_puzzle_saves` is reserved for this; currently unused.
+
 ## Non-obvious gotchas
 
 ### Supabase client choice
