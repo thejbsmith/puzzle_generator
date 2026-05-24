@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RemoveFromLibraryButton } from '@/components/puzzle/RemoveFromLibraryButton';
+import { RenameEntryButton } from '@/components/puzzle/RenameEntryButton';
 import Link from 'next/link';
 
 export default async function LibraryPage() {
@@ -20,18 +21,16 @@ export default async function LibraryPage() {
     );
   }
 
-  // Fetch word search saves
   const { data: wsSaves } = await supabase
     .from('user_puzzle_saves')
-    .select('saved_at, puzzles(share_slug, theme, size, difficulty)')
+    .select('saved_at, nickname, puzzles(share_slug, theme, size, difficulty)')
     .eq('user_id', user.id)
     .eq('puzzle_type', 'word_search')
     .order('saved_at', { ascending: false });
 
-  // Fetch sudoku saves
   const { data: sudokuSaves } = await supabase
     .from('user_puzzle_saves')
-    .select('saved_at, sudoku_puzzles(share_slug, difficulty)')
+    .select('saved_at, nickname, sudoku_puzzles(share_slug, difficulty)')
     .eq('user_id', user.id)
     .eq('puzzle_type', 'sudoku')
     .order('saved_at', { ascending: false });
@@ -43,14 +42,14 @@ export default async function LibraryPage() {
     const raw = s.puzzles;
     if (!raw) return [];
     const p = (Array.isArray(raw) ? raw[0] : raw) as unknown as WordSearchRow;
-    return p ? [{ ...p, saved_at: s.saved_at }] : [];
+    return p ? [{ ...p, saved_at: s.saved_at, nickname: s.nickname as string | null }] : [];
   });
 
   const sudokuPuzzles = (sudokuSaves ?? []).flatMap((s) => {
     const raw = s.sudoku_puzzles;
     if (!raw) return [];
     const p = (Array.isArray(raw) ? raw[0] : raw) as unknown as SudokuRow;
-    return p ? [{ ...p, saved_at: s.saved_at }] : [];
+    return p ? [{ ...p, saved_at: s.saved_at, nickname: s.nickname as string | null }] : [];
   });
 
   const totalSaved = wordSearchPuzzles.length + sudokuPuzzles.length;
@@ -61,45 +60,61 @@ export default async function LibraryPage() {
       type: 'word_search' as const,
       label: 'Word Search',
       puzzles: wordSearchPuzzles,
-      renderCard: (p: WordSearchRow & { saved_at: string }) => (
-        <Card key={p.share_slug} className="relative hover:shadow-md transition-shadow cursor-pointer">
-          <Link href={`/puzzle/${p.share_slug}`} className="absolute inset-0 z-0" aria-label={p.theme} />
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">{p.theme}</CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="capitalize">{p.difficulty}</Badge>
-                <RemoveFromLibraryButton shareSlug={p.share_slug} puzzleType="word_search" />
+      renderCard: (p: WordSearchRow & { saved_at: string; nickname: string | null }) => {
+        const displayName = p.nickname || p.theme;
+        return (
+          <Card key={p.share_slug} className="relative hover:shadow-md transition-shadow cursor-pointer">
+            <Link href={`/puzzle/${p.share_slug}`} className="absolute inset-0 z-0" aria-label={displayName} />
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base truncate">{displayName}</CardTitle>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <RenameEntryButton
+                    shareSlug={p.share_slug}
+                    puzzleType="word_search"
+                    currentName={p.nickname ?? p.theme}
+                  />
+                  <Badge variant="outline" className="capitalize">{p.difficulty}</Badge>
+                  <RemoveFromLibraryButton shareSlug={p.share_slug} puzzleType="word_search" />
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="text-sm text-zinc-500">
-            {p.size} × {p.size} · Saved {new Date(p.saved_at).toLocaleDateString()}
-          </CardContent>
-        </Card>
-      ),
+            </CardHeader>
+            <CardContent className="text-sm text-zinc-500">
+              {p.size} × {p.size} · Saved {new Date(p.saved_at).toLocaleDateString()}
+            </CardContent>
+          </Card>
+        );
+      },
     },
     {
       type: 'sudoku' as const,
       label: 'Sudoku',
       puzzles: sudokuPuzzles,
-      renderCard: (p: SudokuRow & { saved_at: string }) => (
-        <Card key={p.share_slug} className="relative hover:shadow-md transition-shadow cursor-pointer">
-          <Link href={`/sudoku/${p.share_slug}`} className="absolute inset-0 z-0" aria-label={`Sudoku – ${p.difficulty}`} />
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Sudoku</CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="capitalize">{p.difficulty}</Badge>
-                <RemoveFromLibraryButton shareSlug={p.share_slug} puzzleType="sudoku" />
+      renderCard: (p: SudokuRow & { saved_at: string; nickname: string | null }) => {
+        const displayName = p.nickname || `${p.difficulty.charAt(0).toUpperCase() + p.difficulty.slice(1)} Sudoku`;
+        return (
+          <Card key={p.share_slug} className="relative hover:shadow-md transition-shadow cursor-pointer">
+            <Link href={`/sudoku/${p.share_slug}`} className="absolute inset-0 z-0" aria-label={displayName} />
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base truncate">{displayName}</CardTitle>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <RenameEntryButton
+                    shareSlug={p.share_slug}
+                    puzzleType="sudoku"
+                    currentName={p.nickname ?? displayName}
+                  />
+                  <Badge variant="outline" className="capitalize">{p.difficulty}</Badge>
+                  <RemoveFromLibraryButton shareSlug={p.share_slug} puzzleType="sudoku" />
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="text-sm text-zinc-500">
-            Saved {new Date(p.saved_at).toLocaleDateString()}
-          </CardContent>
-        </Card>
-      ),
+            </CardHeader>
+            <CardContent className="text-sm text-zinc-500">
+              Saved {new Date(p.saved_at).toLocaleDateString()}
+            </CardContent>
+          </Card>
+        );
+      },
     },
   ].filter((s) => s.puzzles.length > 0);
 

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import type { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ import { saveSudoku } from '@/app/actions/saveSudoku';
 import { generateWordSearch } from '@/lib/puzzle/wordSearch';
 import { generateSudokuPuzzle } from '@/lib/puzzle/sudoku';
 import { WordChipInput } from '@/components/puzzle/WordChipInput';
+import { createClient } from '@/lib/supabase/client';
 import type { GridSize, Difficulty, SudokuDifficulty } from '@/lib/puzzle/types';
 
 type WordSource = 'ai' | 'custom';
@@ -42,6 +44,13 @@ interface SudokuResult {
 export default function HomePage() {
   const router = useRouter();
 
+  // Auth
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
+
   // Puzzle type
   const [puzzleType, setPuzzleType] = useState<PuzzleType>('word-search');
 
@@ -53,6 +62,10 @@ export default function HomePage() {
 
   // Shared config
   const [difficulty, setDifficulty] = useState<Difficulty | SudokuDifficulty>('medium');
+
+  // Nicknames for library save
+  const [wordSearchNickname, setWordSearchNickname] = useState('');
+  const [sudokuNickname, setSudokuNickname] = useState('');
 
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -77,6 +90,7 @@ export default function HomePage() {
     if (puzzleType === 'sudoku') {
       setIsGenerating(true);
       setSudokuResult(null);
+      setSudokuNickname('');
       try {
         const result = generateSudokuPuzzle({ difficulty: difficulty as SudokuDifficulty });
         setSudokuResult(result);
@@ -97,6 +111,7 @@ export default function HomePage() {
 
     setIsGenerating(true);
     setWordSearchResult(null);
+    setWordSearchNickname('');
 
     let words: string[];
     if (wordSource === 'custom') {
@@ -137,6 +152,7 @@ export default function HomePage() {
       difficulty: wordSearchResult.difficulty,
       grid: wordSearchResult.grid,
       words: wordSearchResult.words,
+      nickname: wordSearchNickname.trim() || undefined,
     });
 
     if (saveError || !share_slug) {
@@ -157,6 +173,7 @@ export default function HomePage() {
       puzzle: sudokuResult.puzzle,
       solution: sudokuResult.solution,
       difficulty: sudokuResult.difficulty,
+      nickname: sudokuNickname.trim() || undefined,
     });
 
     if (saveError || !share_slug) {
@@ -354,6 +371,20 @@ export default function HomePage() {
                 <Badge key={word} variant="secondary">{word}</Badge>
               ))}
             </div>
+            {user && (
+              <div className="space-y-1.5">
+                <Label htmlFor="ws-nickname" className="text-xs text-zinc-500">
+                  Name this puzzle (optional — saves to your library)
+                </Label>
+                <Input
+                  id="ws-nickname"
+                  placeholder={wordSearchResult.theme}
+                  value={wordSearchNickname}
+                  onChange={(e) => setWordSearchNickname(e.target.value)}
+                  className="h-10"
+                />
+              </div>
+            )}
             <Button
               className="w-full h-12 text-base"
               onClick={handleSaveWordSearch}
@@ -362,7 +393,9 @@ export default function HomePage() {
               {isSaving ? 'Saving…' : 'Save & Play →'}
             </Button>
             <p className="text-xs text-center text-zinc-400">
-              Saves your puzzle and opens it for solving
+              {user && wordSearchNickname.trim()
+                ? 'Saves to your library and opens for solving'
+                : 'Saves your puzzle and opens it for solving'}
             </p>
           </CardContent>
         </Card>
@@ -381,6 +414,20 @@ export default function HomePage() {
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
+            {user && (
+              <div className="space-y-1.5">
+                <Label htmlFor="sudoku-nickname" className="text-xs text-zinc-500">
+                  Name this puzzle (optional — saves to your library)
+                </Label>
+                <Input
+                  id="sudoku-nickname"
+                  placeholder={`${sudokuResult.difficulty.charAt(0).toUpperCase() + sudokuResult.difficulty.slice(1)} Sudoku`}
+                  value={sudokuNickname}
+                  onChange={(e) => setSudokuNickname(e.target.value)}
+                  className="h-10"
+                />
+              </div>
+            )}
             <Button
               className="w-full h-12 text-base"
               onClick={handleSaveSudoku}
@@ -389,7 +436,9 @@ export default function HomePage() {
               {isSaving ? 'Saving…' : 'Save & Play →'}
             </Button>
             <p className="text-xs text-center text-zinc-400">
-              Saves your puzzle and opens it for solving
+              {user && sudokuNickname.trim()
+                ? 'Saves to your library and opens for solving'
+                : 'Saves your puzzle and opens it for solving'}
             </p>
           </CardContent>
         </Card>

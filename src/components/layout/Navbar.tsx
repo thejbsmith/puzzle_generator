@@ -1,11 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
+function userAvatarUrl(user: User): string {
+  // Google OAuth provides a real profile photo in user_metadata
+  if (user.user_metadata?.avatar_url) return user.user_metadata.avatar_url as string;
+  // Fallback: deterministic identicon from email via DiceBear
+  const seed = encodeURIComponent((user.email ?? user.id).toLowerCase());
+  return `https://api.dicebear.com/9.x/identicon/svg?seed=${seed}&backgroundColor=18181b&size=80`;
+}
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
@@ -42,6 +51,14 @@ export default function Navbar() {
                 My Library
               </Link>
               <Avatar className="h-8 w-8">
+                <Image
+                  src={userAvatarUrl(user)}
+                  alt={user.email ?? 'User avatar'}
+                  width={32}
+                  height={32}
+                  className="rounded-full object-cover"
+                  unoptimized
+                />
                 <AvatarFallback className="bg-zinc-800 text-white text-sm">
                   {initials}
                 </AvatarFallback>
