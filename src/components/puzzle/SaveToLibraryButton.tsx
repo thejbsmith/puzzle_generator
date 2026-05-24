@@ -6,13 +6,21 @@ import { saveToLibrary } from '@/app/actions/saveToLibrary';
 import { removeFromLibrary } from '@/app/actions/removeFromLibrary';
 import { createClient } from '@/lib/supabase/client';
 
+type PuzzleType = 'word_search' | 'sudoku';
+
 interface Props {
   shareSlug: string;
   initialSaved: boolean;
   isSignedIn: boolean;
+  puzzleType?: PuzzleType;
 }
 
-export function SaveToLibraryButton({ shareSlug, initialSaved, isSignedIn }: Props) {
+export function SaveToLibraryButton({
+  shareSlug,
+  initialSaved,
+  isSignedIn,
+  puzzleType = 'word_search',
+}: Props) {
   const [saved, setSaved] = useState(initialSaved);
   const [hovered, setHovered] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -28,10 +36,10 @@ export function SaveToLibraryButton({ shareSlug, initialSaved, isSignedIn }: Pro
     }
     startTransition(async () => {
       if (saved) {
-        const result = await removeFromLibrary(shareSlug);
+        const result = await removeFromLibrary(shareSlug, puzzleType);
         if (!result.error) setSaved(false);
       } else {
-        const result = await saveToLibrary(shareSlug);
+        const result = await saveToLibrary(shareSlug, puzzleType);
         if (!result.error) setSaved(true);
       }
     });

@@ -54,7 +54,7 @@ export function WordChipInput({ words, onChange, maxWords = 20 }: WordChipInputP
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' || e.key === ',') {
+    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
       e.preventDefault();
       tryAddWord(inputValue);
     } else if (e.key === 'Backspace' && inputValue === '' && words.length > 0) {

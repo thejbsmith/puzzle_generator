@@ -4,7 +4,14 @@ import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { removeFromLibrary } from '@/app/actions/removeFromLibrary';
 
-export function RemoveFromLibraryButton({ shareSlug }: { shareSlug: string }) {
+type PuzzleType = 'word_search' | 'sudoku';
+
+interface Props {
+  shareSlug: string;
+  puzzleType?: PuzzleType;
+}
+
+export function RemoveFromLibraryButton({ shareSlug, puzzleType = 'word_search' }: Props) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -12,7 +19,7 @@ export function RemoveFromLibraryButton({ shareSlug }: { shareSlug: string }) {
     e.preventDefault();
     e.stopPropagation();
     startTransition(async () => {
-      await removeFromLibrary(shareSlug);
+      await removeFromLibrary(shareSlug, puzzleType);
       router.refresh();
     });
   };

@@ -2,12 +2,35 @@
 
 import { createClient } from '@/lib/supabase/server';
 
-export async function saveToLibrary(shareSlug: string): Promise<{ error?: string }> {
+type PuzzleType = 'word_search' | 'sudoku';
+
+export async function saveToLibrary(
+  shareSlug: string,
+  puzzleType: PuzzleType = 'word_search',
+): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return { error: 'Not signed in' };
 
+  if (puzzleType === 'sudoku') {
+    const { data: puzzle } = await supabase
+      .from('sudoku_puzzles')
+      .select('id')
+      .eq('share_slug', shareSlug)
+      .single();
+
+    if (!puzzle) return { error: 'Puzzle not found' };
+
+    const { error } = await supabase
+      .from('user_puzzle_saves')
+      .insert({ user_id: user.id, puzzle_type: 'sudoku', sudoku_puzzle_id: puzzle.id });
+
+    if (error && error.code !== '23505') return { error: error.message };
+    return {};
+  }
+
+  // word_search (default)
   const { data: puzzle } = await supabase
     .from('puzzles')
     .select('id')
@@ -18,9 +41,8 @@ export async function saveToLibrary(shareSlug: string): Promise<{ error?: string
 
   const { error } = await supabase
     .from('user_puzzle_saves')
-    .insert({ user_id: user.id, puzzle_id: puzzle.id });
+    .insert({ user_id: user.id, puzzle_type: 'word_search', puzzle_id: puzzle.id });
 
   if (error && error.code !== '23505') return { error: error.message };
-
   return {};
 }
