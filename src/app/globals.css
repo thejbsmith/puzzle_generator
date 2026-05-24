@@ -128,3 +128,37 @@
     @apply font-sans;
   }
 }
+
+@media print {
+  body {
+    background: white !important;
+  }
+
+  /* Hide everything except puzzle content */
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .hidden.print\:block {
+    display: block !important;
+  }
+
+  /* Grid: keep colors crisp */
+  .print-word-list .line-through {
+    display: none;
+  }
+
+  /* Solution mode: show found-word highlights when .print-solution is on <html> */
+  html:not(.print-solution) .bg-green-200 {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Prevent page breaks inside the grid */
+  [style*="aspect-ratio"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

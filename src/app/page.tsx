@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,25 +15,28 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { generateWords } from '@/app/actions/generateWords';
+import { savePuzzle } from '@/app/actions/savePuzzle';
 import { generateWordSearch } from '@/lib/puzzle/wordSearch';
 import type { GridSize, Difficulty } from '@/lib/puzzle/types';
 
 type WordSource = 'ai' | 'custom';
-type PuzzleType = 'word-search';
 
 interface GenerationResult {
   words: string[];
   grid: string[][];
   theme: string;
+  gridSize: GridSize;
+  difficulty: Difficulty;
 }
 
 export default function HomePage() {
-  const [selectedType, setSelectedType] = useState<PuzzleType>('word-search');
+  const router = useRouter();
   const [theme, setTheme] = useState('');
   const [gridSize, setGridSize] = useState<GridSize>(15);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [wordSource] = useState<WordSource>('ai');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,8 +54,36 @@ export default function HomePage() {
     }
 
     const puzzleResult = generateWordSearch({ gridSize, difficulty, words });
-    setResult({ words: puzzleResult.placedWords, grid: puzzleResult.grid, theme });
+    setResult({
+      words: puzzleResult.placedWords,
+      grid: puzzleResult.grid,
+      theme,
+      gridSize,
+      difficulty,
+    });
     setIsGenerating(false);
+  }
+
+  async function handleSave() {
+    if (!result) return;
+    setIsSaving(true);
+    setError(null);
+
+    const { share_slug, error: saveError } = await savePuzzle({
+      theme: result.theme,
+      size: result.gridSize,
+      difficulty: result.difficulty,
+      grid: result.grid,
+      words: result.words,
+    });
+
+    if (saveError || !share_slug) {
+      setError(saveError ?? 'Failed to save puzzle');
+      setIsSaving(false);
+      return;
+    }
+
+    router.push(`/puzzle/${share_slug}`);
   }
 
   return (
@@ -66,14 +98,7 @@ export default function HomePage() {
 
       {/* Puzzle type selector */}
       <div className="grid grid-cols-3 gap-4">
-        <Card
-          className={`cursor-pointer transition-all ${
-            selectedType === 'word-search'
-              ? 'ring-2 ring-zinc-900 shadow-md'
-              : 'hover:shadow-sm'
-          }`}
-          onClick={() => setSelectedType('word-search')}
-        >
+        <Card className="ring-2 ring-zinc-900 shadow-md cursor-default">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Word Search</CardTitle>
           </CardHeader>
@@ -98,102 +123,85 @@ export default function HomePage() {
       </div>
 
       {/* Config form */}
-      {selectedType === 'word-search' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Configure Your Puzzle</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {/* Theme */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Configure Your Puzzle</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="theme">Theme</Label>
+            <Input
+              id="theme"
+              placeholder="e.g. Ocean Animals, Space Exploration"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
+              className="h-12"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="theme">Theme</Label>
-              <Input
-                id="theme"
-                placeholder="e.g. Ocean Animals, Space Exploration"
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                className="h-12"
-              />
+              <Label>Grid Size</Label>
+              <Select value={String(gridSize)} onValueChange={(v) => setGridSize(Number(v) as GridSize)}>
+                <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 × 10</SelectItem>
+                  <SelectItem value="15">15 × 15</SelectItem>
+                  <SelectItem value="20">20 × 20</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Grid size */}
-              <div className="space-y-1.5">
-                <Label>Grid Size</Label>
-                <Select
-                  value={String(gridSize)}
-                  onValueChange={(v) => setGridSize(Number(v) as GridSize)}
-                >
-                  <SelectTrigger className="h-12">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10 × 10</SelectItem>
-                    <SelectItem value="15">15 × 15</SelectItem>
-                    <SelectItem value="20">20 × 20</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Difficulty */}
-              <div className="space-y-1.5">
-                <Label>Difficulty</Label>
-                <Select value={difficulty} onValueChange={(v) => setDifficulty(v as Difficulty)}>
-                  <SelectTrigger className="h-12">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="easy">Easy</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="hard">Hard</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Word source */}
             <div className="space-y-1.5">
-              <Label>Word Source</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <div
-                  className={`rounded-lg border-2 p-4 cursor-pointer transition-all ${
-                    wordSource === 'ai' ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200'
-                  }`}
-                >
-                  <p className="font-medium text-sm">AI Generated</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">Words chosen by AI for your theme</p>
-                </div>
-                <div className="rounded-lg border-2 border-zinc-200 p-4 opacity-50 cursor-not-allowed relative">
-                  <Badge variant="secondary" className="absolute top-2 right-2 text-xs">
-                    Coming Soon
-                  </Badge>
-                  <p className="font-medium text-sm">Custom Word List</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">Enter your own words</p>
-                </div>
+              <Label>Difficulty</Label>
+              <Select value={difficulty} onValueChange={(v) => setDifficulty(v as Difficulty)}>
+                <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">Easy</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="hard">Hard</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Word source */}
+          <div className="space-y-1.5">
+            <Label>Word Source</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border-2 border-zinc-900 bg-zinc-50 p-4 cursor-default">
+                <p className="font-medium text-sm">AI Generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Words chosen by AI for your theme</p>
+              </div>
+              <div className="rounded-lg border-2 border-zinc-200 p-4 opacity-50 cursor-not-allowed relative">
+                <Badge variant="secondary" className="absolute top-2 right-2 text-xs">Coming Soon</Badge>
+                <p className="font-medium text-sm">Custom Word List</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Enter your own words</p>
               </div>
             </div>
+          </div>
 
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 rounded-md px-3 py-2">{error}</p>
-            )}
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-md px-3 py-2">{error}</p>
+          )}
 
-            <Button
-              className="w-full h-12 text-base"
-              onClick={handleGenerate}
-              disabled={isGenerating || !theme.trim()}
-            >
-              {isGenerating ? 'Generating…' : 'Generate Puzzle'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          <Button
+            className="w-full h-12 text-base"
+            onClick={handleGenerate}
+            disabled={isGenerating || !theme.trim()}
+          >
+            {isGenerating ? 'Generating…' : 'Generate Puzzle'}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Result preview */}
       {result && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Puzzle Generated!</CardTitle>
+              <CardTitle>Ready to Play!</CardTitle>
               <Badge variant="outline">{result.words.length} words</Badge>
             </div>
             <p className="text-sm text-zinc-500">Theme: {result.theme}</p>
@@ -204,15 +212,16 @@ export default function HomePage() {
                 <Badge key={word} variant="secondary">{word}</Badge>
               ))}
             </div>
-            <div
-              className="rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-400 text-sm"
-              style={{ height: `${gridSize * 2}px` }}
+            <Button
+              className="w-full h-12 text-base"
+              onClick={handleSave}
+              disabled={isSaving}
             >
-              {gridSize} × {gridSize} interactive grid — coming in next phase
-            </div>
-            <Button variant="outline" className="w-full h-12" disabled>
-              Save Puzzle <span className="ml-2 text-xs text-zinc-400">(coming soon)</span>
+              {isSaving ? 'Saving…' : 'Save & Play →'}
             </Button>
+            <p className="text-xs text-center text-zinc-400">
+              Saves your puzzle and opens it for solving
+            </p>
           </CardContent>
         </Card>
       )}
