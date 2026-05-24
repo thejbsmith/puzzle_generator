@@ -37,3 +37,11 @@ export interface WordSearchResult {
   placedWords: string[];
   failedWords: string[];
 }
+
+export type SudokuDifficulty = 'easy' | 'medium' | 'hard' | 'expert';
+
+export interface SudokuPuzzle {
+  puzzle: (number | null)[][];
+  solution: number[][];
+  difficulty: SudokuDifficulty;
+}

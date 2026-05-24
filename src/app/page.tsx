@@ -16,12 +16,16 @@ import {
 } from '@/components/ui/select';
 import { generateWords } from '@/app/actions/generateWords';
 import { savePuzzle } from '@/app/actions/savePuzzle';
+import { saveSudoku } from '@/app/actions/saveSudoku';
 import { generateWordSearch } from '@/lib/puzzle/wordSearch';
-import type { GridSize, Difficulty } from '@/lib/puzzle/types';
+import { generateSudokuPuzzle } from '@/lib/puzzle/sudoku';
+import { WordChipInput } from '@/components/puzzle/WordChipInput';
+import type { GridSize, Difficulty, SudokuDifficulty } from '@/lib/puzzle/types';
 
 type WordSource = 'ai' | 'custom';
+type PuzzleType = 'word-search' | 'sudoku';
 
-interface GenerationResult {
+interface WordSearchResult {
   words: string[];
   grid: string[][];
   theme: string;
@@ -29,52 +33,110 @@ interface GenerationResult {
   difficulty: Difficulty;
 }
 
+interface SudokuResult {
+  puzzle: (number | null)[][];
+  solution: number[][];
+  difficulty: SudokuDifficulty;
+}
+
 export default function HomePage() {
   const router = useRouter();
+
+  // Puzzle type
+  const [puzzleType, setPuzzleType] = useState<PuzzleType>('word-search');
+
+  // Word search config
   const [theme, setTheme] = useState('');
   const [gridSize, setGridSize] = useState<GridSize>(15);
-  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
-  const [wordSource] = useState<WordSource>('ai');
+  const [wordSource, setWordSource] = useState<WordSource>('ai');
+  const [customWords, setCustomWords] = useState<string[]>([]);
+
+  // Shared config
+  const [difficulty, setDifficulty] = useState<Difficulty | SudokuDifficulty>('medium');
+
+  // UI state
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [result, setResult] = useState<GenerationResult | null>(null);
+  const [wordSearchResult, setWordSearchResult] = useState<WordSearchResult | null>(null);
+  const [sudokuResult, setSudokuResult] = useState<SudokuResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleGenerate() {
-    if (!theme.trim()) return;
-    setIsGenerating(true);
+  function selectPuzzleType(type: PuzzleType) {
+    setPuzzleType(type);
+    setWordSearchResult(null);
+    setSudokuResult(null);
     setError(null);
-    setResult(null);
+    if (type === 'sudoku' && difficulty === 'hard') {
+      // keep difficulty; expert is also valid for sudoku
+    }
+  }
 
-    const { words, error: wordError } = await generateWords({ theme, difficulty, count: 20 });
-    if (wordError || !words.length) {
-      setError(wordError ?? 'No words returned from AI');
-      setIsGenerating(false);
+  async function handleGenerate() {
+    setError(null);
+
+    if (puzzleType === 'sudoku') {
+      setIsGenerating(true);
+      setSudokuResult(null);
+      try {
+        const result = generateSudokuPuzzle({ difficulty: difficulty as SudokuDifficulty });
+        setSudokuResult(result);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to generate puzzle');
+      } finally {
+        setIsGenerating(false);
+      }
       return;
     }
 
-    const puzzleResult = generateWordSearch({ gridSize, difficulty, words });
-    setResult({
+    // Word search
+    if (wordSource === 'ai' && !theme.trim()) return;
+    if (wordSource === 'custom' && customWords.length < 3) {
+      setError('Please add at least 3 words');
+      return;
+    }
+
+    setIsGenerating(true);
+    setWordSearchResult(null);
+
+    let words: string[];
+    if (wordSource === 'custom') {
+      words = customWords;
+    } else {
+      const { words: aiWords, error: wordError } = await generateWords({
+        theme,
+        difficulty: difficulty as Difficulty,
+        count: 20,
+      });
+      if (wordError || !aiWords.length) {
+        setError(wordError ?? 'No words returned from AI');
+        setIsGenerating(false);
+        return;
+      }
+      words = aiWords;
+    }
+
+    const puzzleResult = generateWordSearch({ gridSize, difficulty: difficulty as Difficulty, words });
+    setWordSearchResult({
       words: puzzleResult.placedWords,
       grid: puzzleResult.grid,
-      theme,
+      theme: wordSource === 'custom' ? 'Custom' : theme,
       gridSize,
-      difficulty,
+      difficulty: difficulty as Difficulty,
     });
     setIsGenerating(false);
   }
 
-  async function handleSave() {
-    if (!result) return;
+  async function handleSaveWordSearch() {
+    if (!wordSearchResult) return;
     setIsSaving(true);
     setError(null);
 
     const { share_slug, error: saveError } = await savePuzzle({
-      theme: result.theme,
-      size: result.gridSize,
-      difficulty: result.difficulty,
-      grid: result.grid,
-      words: result.words,
+      theme: wordSearchResult.theme,
+      size: wordSearchResult.gridSize,
+      difficulty: wordSearchResult.difficulty,
+      grid: wordSearchResult.grid,
+      words: wordSearchResult.words,
     });
 
     if (saveError || !share_slug) {
@@ -85,6 +147,31 @@ export default function HomePage() {
 
     router.push(`/puzzle/${share_slug}`);
   }
+
+  async function handleSaveSudoku() {
+    if (!sudokuResult) return;
+    setIsSaving(true);
+    setError(null);
+
+    const { share_slug, error: saveError } = await saveSudoku({
+      puzzle: sudokuResult.puzzle,
+      solution: sudokuResult.solution,
+      difficulty: sudokuResult.difficulty,
+    });
+
+    if (saveError || !share_slug) {
+      setError(saveError ?? 'Failed to save puzzle');
+      setIsSaving(false);
+      return;
+    }
+
+    router.push(`/sudoku/${share_slug}`);
+  }
+
+  const generateDisabled =
+    isGenerating ||
+    (puzzleType === 'word-search' &&
+      (wordSource === 'ai' ? !theme.trim() : customWords.length < 3));
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 space-y-8">
@@ -98,7 +185,14 @@ export default function HomePage() {
 
       {/* Puzzle type selector */}
       <div className="grid grid-cols-3 gap-4">
-        <Card className="ring-2 ring-zinc-900 shadow-md cursor-default">
+        <Card
+          className={`cursor-pointer transition-all ${
+            puzzleType === 'word-search'
+              ? 'ring-2 ring-zinc-900 shadow-md'
+              : 'hover:shadow-md border'
+          }`}
+          onClick={() => selectPuzzleType('word-search')}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Word Search</CardTitle>
           </CardHeader>
@@ -107,19 +201,33 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {(['Sudoku', 'Crossword'] as const).map((type) => (
-          <Card key={type} className="opacity-50 cursor-not-allowed">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">{type}</CardTitle>
-                <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="text-sm text-zinc-500">
-              {type === 'Sudoku' ? 'Fill the grid with numbers' : 'Fill in intersecting words'}
-            </CardContent>
-          </Card>
-        ))}
+        <Card
+          className={`cursor-pointer transition-all ${
+            puzzleType === 'sudoku'
+              ? 'ring-2 ring-zinc-900 shadow-md'
+              : 'hover:shadow-md border'
+          }`}
+          onClick={() => selectPuzzleType('sudoku')}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Sudoku</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-zinc-500">
+            Fill the grid with numbers
+          </CardContent>
+        </Card>
+
+        <Card className="opacity-50 cursor-not-allowed">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Crossword</CardTitle>
+              <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="text-sm text-zinc-500">
+            Fill in intersecting words
+          </CardContent>
+        </Card>
       </div>
 
       {/* Config form */}
@@ -128,59 +236,89 @@ export default function HomePage() {
           <CardTitle>Configure Your Puzzle</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="space-y-1.5">
-            <Label htmlFor="theme">Theme</Label>
-            <Input
-              id="theme"
-              placeholder="e.g. Ocean Animals, Space Exploration"
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
-              className="h-12"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          {/* Theme — word search + AI only */}
+          {puzzleType === 'word-search' && wordSource === 'ai' && (
             <div className="space-y-1.5">
-              <Label>Grid Size</Label>
-              <Select value={String(gridSize)} onValueChange={(v) => setGridSize(Number(v) as GridSize)}>
-                <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10 × 10</SelectItem>
-                  <SelectItem value="15">15 × 15</SelectItem>
-                  <SelectItem value="20">20 × 20</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="theme">Theme</Label>
+              <Input
+                id="theme"
+                placeholder="e.g. Ocean Animals, Space Exploration"
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
+                className="h-12"
+              />
             </div>
+          )}
+
+          <div className={`grid gap-4 ${puzzleType === 'word-search' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {/* Grid Size — word search only */}
+            {puzzleType === 'word-search' && (
+              <div className="space-y-1.5">
+                <Label>Grid Size</Label>
+                <Select value={String(gridSize)} onValueChange={(v) => setGridSize(Number(v) as GridSize)}>
+                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 × 10</SelectItem>
+                    <SelectItem value="15">15 × 15</SelectItem>
+                    <SelectItem value="20">20 × 20</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label>Difficulty</Label>
-              <Select value={difficulty} onValueChange={(v) => setDifficulty(v as Difficulty)}>
+              <Select value={difficulty} onValueChange={(v) => setDifficulty(v as Difficulty | SudokuDifficulty)}>
                 <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="easy">Easy</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="hard">Hard</SelectItem>
+                  {puzzleType === 'sudoku' && (
+                    <SelectItem value="expert">Expert</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {/* Word source */}
-          <div className="space-y-1.5">
-            <Label>Word Source</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border-2 border-zinc-900 bg-zinc-50 p-4 cursor-default">
-                <p className="font-medium text-sm">AI Generated</p>
-                <p className="text-xs text-zinc-500 mt-0.5">Words chosen by AI for your theme</p>
+          {/* Word source — word search only */}
+          {puzzleType === 'word-search' && (
+            <div className="space-y-1.5">
+              <Label>Word Source</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div
+                  className={`rounded-lg border-2 p-4 cursor-pointer transition-colors ${
+                    wordSource === 'ai'
+                      ? 'border-zinc-900 bg-zinc-50'
+                      : 'border-zinc-200 hover:border-zinc-400'
+                  }`}
+                  onClick={() => setWordSource('ai')}
+                >
+                  <p className="font-medium text-sm">AI Generated</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">Words chosen by AI for your theme</p>
+                </div>
+                <div
+                  className={`rounded-lg border-2 p-4 cursor-pointer transition-colors ${
+                    wordSource === 'custom'
+                      ? 'border-zinc-900 bg-zinc-50'
+                      : 'border-zinc-200 hover:border-zinc-400'
+                  }`}
+                  onClick={() => setWordSource('custom')}
+                >
+                  <p className="font-medium text-sm">Custom Word List</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">Enter your own words</p>
+                </div>
               </div>
-              <div className="rounded-lg border-2 border-zinc-200 p-4 opacity-50 cursor-not-allowed relative">
-                <Badge variant="secondary" className="absolute top-2 right-2 text-xs">Coming Soon</Badge>
-                <p className="font-medium text-sm">Custom Word List</p>
-                <p className="text-xs text-zinc-500 mt-0.5">Enter your own words</p>
-              </div>
+
+              {wordSource === 'custom' && (
+                <div className="mt-3">
+                  <WordChipInput words={customWords} onChange={setCustomWords} maxWords={20} />
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 rounded-md px-3 py-2">{error}</p>
@@ -189,32 +327,63 @@ export default function HomePage() {
           <Button
             className="w-full h-12 text-base"
             onClick={handleGenerate}
-            disabled={isGenerating || !theme.trim()}
+            disabled={generateDisabled}
           >
-            {isGenerating ? 'Generating…' : 'Generate Puzzle'}
+            {isGenerating
+              ? 'Generating…'
+              : puzzleType === 'sudoku'
+                ? 'Generate Sudoku'
+                : 'Generate Puzzle'}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Result preview */}
-      {result && (
+      {/* Word search result preview */}
+      {wordSearchResult && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Ready to Play!</CardTitle>
-              <Badge variant="outline">{result.words.length} words</Badge>
+              <Badge variant="outline">{wordSearchResult.words.length} words</Badge>
             </div>
-            <p className="text-sm text-zinc-500">Theme: {result.theme}</p>
+            <p className="text-sm text-zinc-500">Theme: {wordSearchResult.theme}</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
-              {result.words.map((word) => (
+              {wordSearchResult.words.map((word) => (
                 <Badge key={word} variant="secondary">{word}</Badge>
               ))}
             </div>
             <Button
               className="w-full h-12 text-base"
-              onClick={handleSave}
+              onClick={handleSaveWordSearch}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Saving…' : 'Save & Play →'}
+            </Button>
+            <p className="text-xs text-center text-zinc-400">
+              Saves your puzzle and opens it for solving
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sudoku result preview */}
+      {sudokuResult && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Sudoku Ready!</CardTitle>
+              <Badge variant="outline" className="capitalize">{sudokuResult.difficulty}</Badge>
+            </div>
+            <p className="text-sm text-zinc-500">
+              {81 - sudokuResult.puzzle.flat().filter((c) => c === null).length} given clues
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              className="w-full h-12 text-base"
+              onClick={handleSaveSudoku}
               disabled={isSaving}
             >
               {isSaving ? 'Saving…' : 'Save & Play →'}
