@@ -44,6 +44,12 @@ export async function generateWords(params: {
     return { words };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { words: [], error: message };
+    const isRateLimit = message.includes('429') || message.toLowerCase().includes('quota') || message.toLowerCase().includes('rate');
+    return {
+      words: [],
+      error: isRateLimit
+        ? 'Gemini API rate limit hit — please wait 30 seconds and try again.'
+        : message,
+    };
   }
 }
