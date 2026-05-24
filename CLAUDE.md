@@ -17,7 +17,7 @@ the project being git-linked to Vercel.
 ## Planned features
 See README.md for the full roadmap. Summary of what's coming and relevant existing hooks:
 
-- **Custom word list** — `WordSource` type and UI placeholder already exist in `src/app/page.tsx`; `wordSource` state is wired but only `'ai'` is active. Bypasses `generateWords` action.
+- **Custom word list** — `WordSource` type and UI placeholder already exist in `src/app/page.tsx`; `wordSource` state is wired but only `'ai'` is active. Note: the state setter is intentionally omitted (`const [wordSource] = useState<WordSource>('ai')`) — add the setter when implementing this. Bypasses `generateWords` action.
 - **Sudoku** — puzzle type card already on home page; needs generator, grid component, and schema addition.
 - **Crossword** — puzzle type card already on home page; most complex, needs its own generation engine.
 - **Cross-device progress sync** — `solve_progress jsonb` column in `user_puzzle_saves` is reserved for this; currently unused.
@@ -29,6 +29,11 @@ See README.md for the full roadmap. Summary of what's coming and relevant existi
 - Client Components → `createClient()` from `@/lib/supabase/client`
 - Direct DB (psql) is IPv6-only. Use Supabase CLI or the Management API for schema work.
   The personal access token lives in `.env.local` as `SUPABASE_ACCESS_TOKEN`.
+
+### Supabase key naming
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` are the correct modern
+Supabase key names. Supabase now treats `anon` / `service_role` as legacy. Do not rename
+these to the old convention — the Supabase dashboard and newer SDK docs use publishable/secret.
 
 ### RLS: anonymous puzzle creation
 The puzzles INSERT policy must allow NULL `created_by` for anonymous users:
