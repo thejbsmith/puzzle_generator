@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { SudokuGrid } from '@/components/puzzle/SudokuGrid';
 import { Badge } from '@/components/ui/badge';
 import { SaveToLibraryButton } from '@/components/puzzle/SaveToLibraryButton';
+import { ShareButton } from '@/components/puzzle/ShareButton';
 
 interface PageProps {
   params: Promise<{ share_slug: string }>;
@@ -43,12 +44,15 @@ export default async function SudokuPage({ params }: PageProps) {
           <h1 className="text-2xl font-bold text-zinc-900">Sudoku</h1>
           <Badge variant="outline" className="capitalize mt-1">{row.difficulty}</Badge>
         </div>
-        <SaveToLibraryButton
-          shareSlug={share_slug}
-          initialSaved={isSaved}
-          isSignedIn={!!user}
-          puzzleType="sudoku"
-        />
+        <div className="flex items-center gap-2">
+          <ShareButton title={`${row.difficulty} Sudoku`} />
+          <SaveToLibraryButton
+            shareSlug={share_slug}
+            initialSaved={isSaved}
+            isSignedIn={!!user}
+            puzzleType="sudoku"
+          />
+        </div>
       </div>
       <SudokuGrid puzzle={puzzle} solution={solution} shareSlug={share_slug} />
     </div>

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { WordSearchGrid } from '@/components/puzzle/WordSearchGrid';
 import { Badge } from '@/components/ui/badge';
 import { SaveToLibraryButton } from '@/components/puzzle/SaveToLibraryButton';
+import { ShareButton } from '@/components/puzzle/ShareButton';
 import PrintControls from './PrintControls';
 
 interface PageProps {
@@ -49,6 +50,7 @@ export default async function PuzzlePage({ params }: PageProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <ShareButton title={`${puzzle.theme} Word Search`} />
           <SaveToLibraryButton
             shareSlug={share_slug}
             initialSaved={isSaved}
